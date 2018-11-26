@@ -1,15 +1,15 @@
 #define _POSIX_C_SOURCE 200112L
 #include <getopt.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-server.h>
 #include <wlr/backend.h>
 #include <wlr/render/wlr_renderer.h>
-#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_data_device.h>
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
@@ -96,7 +96,8 @@ struct comf_pointer {
 	struct wlr_input_device *device;
 };
 
-static void focus_view(struct comf_view *view, struct wlr_surface *surface) {
+static void focus_view(struct comf_view *view, struct wlr_surface *surface)
+{
 	if (view == NULL) {
 		return;
 	}
@@ -107,28 +108,28 @@ static void focus_view(struct comf_view *view, struct wlr_surface *surface) {
 		return;
 	}
 	if (prev_surface) {
-		struct wlr_xdg_surface *previous = wlr_xdg_surface_from_wlr_surface(
-					seat->keyboard_state.focused_surface);
+		struct wlr_xdg_surface *previous =
+			wlr_xdg_surface_from_wlr_surface(seat->keyboard_state.focused_surface);
 		wlr_xdg_toplevel_set_activated(previous, false);
 	}
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat);
 	wl_list_remove(&view->link);
 	wl_list_insert(&server->views, &view->link);
 	wlr_xdg_toplevel_set_activated(view->xdg_surface, true);
-	wlr_seat_keyboard_notify_enter(seat, view->xdg_surface->surface,
-		keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
+	wlr_seat_keyboard_notify_enter(seat, view->xdg_surface->surface, keyboard->keycodes,
+				       keyboard->num_keycodes, &keyboard->modifiers);
 }
 
-static void keyboard_handle_modifiers(
-		struct wl_listener *listener, void *data) {
-	struct comf_keyboard *keyboard =
-		wl_container_of(listener, keyboard, modifiers);
+static void keyboard_handle_modifiers(struct wl_listener *listener, void *data)
+{
+	struct comf_keyboard *keyboard = wl_container_of(listener, keyboard, modifiers);
 	wlr_seat_set_keyboard(keyboard->server->seat, keyboard->device);
 	wlr_seat_keyboard_notify_modifiers(keyboard->server->seat,
-		&keyboard->device->keyboard->modifiers);
+					   &keyboard->device->keyboard->modifiers);
 }
 
-static bool handle_keybinding(struct comf_server *server, xkb_keysym_t sym) {
+static bool handle_keybinding(struct comf_server *server, xkb_keysym_t sym)
+{
 	switch (sym) {
 	case XKB_KEY_Escape:
 		wl_display_terminate(server->wl_display);
@@ -138,10 +139,10 @@ static bool handle_keybinding(struct comf_server *server, xkb_keysym_t sym) {
 		if (wl_list_length(&server->views) < 2) {
 			break;
 		}
-		struct comf_view *current_view = wl_container_of(
-			server->views.next, current_view, link);
-		struct comf_view *next_view = wl_container_of(
-			current_view->link.next, next_view, link);
+		struct comf_view *current_view =
+			wl_container_of(server->views.next, current_view, link);
+		struct comf_view *next_view =
+			wl_container_of(current_view->link.next, next_view, link);
 		focus_view(next_view, next_view->xdg_surface->surface);
 		/* Move the previous view to the end of the list */
 		wl_list_remove(&current_view->link);
@@ -153,18 +154,16 @@ static bool handle_keybinding(struct comf_server *server, xkb_keysym_t sym) {
 	return true;
 }
 
-static void keyboard_handle_key(
-		struct wl_listener *listener, void *data) {
-	struct comf_keyboard *keyboard =
-		wl_container_of(listener, keyboard, key);
+static void keyboard_handle_key(struct wl_listener *listener, void *data)
+{
+	struct comf_keyboard *keyboard = wl_container_of(listener, keyboard, key);
 	struct comf_server *server = keyboard->server;
 	struct wlr_event_keyboard_key *event = data;
 	struct wlr_seat *seat = server->seat;
 
 	uint32_t keycode = event->keycode + 8;
 	const xkb_keysym_t *syms;
-	int nsyms = xkb_state_key_get_syms(
-			keyboard->device->keyboard->xkb_state, keycode, &syms);
+	int nsyms = xkb_state_key_get_syms(keyboard->device->keyboard->xkb_state, keycode, &syms);
 
 	bool handled = false;
 	uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
@@ -176,22 +175,20 @@ static void keyboard_handle_key(
 
 	if (!handled) {
 		wlr_seat_set_keyboard(seat, keyboard->device);
-		wlr_seat_keyboard_notify_key(seat, event->time_msec,
-			event->keycode, event->state);
+		wlr_seat_keyboard_notify_key(seat, event->time_msec, event->keycode, event->state);
 	}
 }
 
-static void server_new_keyboard(struct comf_server *server,
-		struct wlr_input_device *device) {
-	struct comf_keyboard *keyboard =
-		calloc(1, sizeof(struct comf_keyboard));
+static void server_new_keyboard(struct comf_server *server, struct wlr_input_device *device)
+{
+	struct comf_keyboard *keyboard = calloc(1, sizeof(struct comf_keyboard));
 	keyboard->server = server;
 	keyboard->device = device;
 
 	struct xkb_rule_names rules = { 0 };
 	struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	struct xkb_keymap *keymap = xkb_map_new_from_names(context, &rules,
-		XKB_KEYMAP_COMPILE_NO_FLAGS);
+	struct xkb_keymap *keymap =
+		xkb_map_new_from_names(context, &rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
 	wlr_keyboard_set_keymap(device->keyboard, keymap);
 	xkb_keymap_unref(keymap);
@@ -208,14 +205,14 @@ static void server_new_keyboard(struct comf_server *server,
 	wl_list_insert(&server->keyboards, &keyboard->link);
 }
 
-static void server_new_pointer(struct comf_server *server,
-		struct wlr_input_device *device) {
+static void server_new_pointer(struct comf_server *server, struct wlr_input_device *device)
+{
 	wlr_cursor_attach_input_device(server->cursor, device);
 }
 
-static void server_new_input(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, new_input);
+static void server_new_input(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, new_input);
 	struct wlr_input_device *device = data;
 	switch (device->type) {
 	case WLR_INPUT_DEVICE_KEYBOARD:
@@ -232,34 +229,38 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 	wlr_seat_set_capabilities(server->seat, caps);
 }
 
-static void seat_request_cursor(struct wl_listener *listener, void *data) {
-	struct comf_server *server = wl_container_of(
-			listener, server, request_cursor);
+static void seat_request_cursor(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, request_cursor);
 	struct wlr_seat_pointer_request_set_cursor_event *event = data;
-	struct wlr_seat_client *focused_client =
-		server->seat->pointer_state.focused_client;
+	struct wlr_seat_client *focused_client = server->seat->pointer_state.focused_client;
 	if (focused_client == event->seat_client) {
-		wlr_cursor_set_surface(server->cursor, event->surface,
-				event->hotspot_x, event->hotspot_y);
+		wlr_cursor_set_surface(server->cursor, event->surface, event->hotspot_x,
+				       event->hotspot_y);
 	}
 }
 
 static bool view_at(struct comf_view *view,
-		double lx, double ly, struct wlr_surface **surface,
-		double *sx, double *sy) {
+		    double lx,
+		    double ly,
+		    struct wlr_surface **surface,
+		    double *sx,
+		    double *sy)
+{
 	double view_sx = lx - view->x;
 	double view_sy = ly - view->y;
 
 	struct wlr_surface_state *state = &view->xdg_surface->surface->current;
 	struct wlr_box box = {
-		.x = 0, .y = 0,
-		.width = state->width, .height = state->height,
+		.x = 0,
+		.y = 0,
+		.width = state->width,
+		.height = state->height,
 	};
 
 	double _sx, _sy;
 	struct wlr_surface *_surface = NULL;
-	_surface = wlr_xdg_surface_surface_at(
-			view->xdg_surface, view_sx, view_sy, &_sx, &_sy);
+	_surface = wlr_xdg_surface_surface_at(view->xdg_surface, view_sx, view_sy, &_sx, &_sy);
 
 	if (_surface != NULL) {
 		*sx = _sx;
@@ -271,11 +272,16 @@ static bool view_at(struct comf_view *view,
 	return false;
 }
 
-static struct comf_view *desktop_view_at(
-		struct comf_server *server, double lx, double ly,
-		struct wlr_surface **surface, double *sx, double *sy) {
+static struct comf_view *desktop_view_at(struct comf_server *server,
+					 double lx,
+					 double ly,
+					 struct wlr_surface **surface,
+					 double *sx,
+					 double *sy)
+{
 	struct comf_view *view;
-	wl_list_for_each(view, &server->views, link) {
+	wl_list_for_each(view, &server->views, link)
+	{
 		if (view_at(view, lx, ly, surface, sx, sy)) {
 			return view;
 		}
@@ -283,12 +289,14 @@ static struct comf_view *desktop_view_at(
 	return NULL;
 }
 
-static void process_cursor_move(struct comf_server *server, uint32_t time) {
+static void process_cursor_move(struct comf_server *server, uint32_t time)
+{
 	server->grabbed_view->x = server->cursor->x - server->grab_x;
 	server->grabbed_view->y = server->cursor->y - server->grab_y;
 }
 
-static void process_cursor_resize(struct comf_server *server, uint32_t time) {
+static void process_cursor_resize(struct comf_server *server, uint32_t time)
+{
 	struct comf_view *view = server->grabbed_view;
 	double dx = server->cursor->x - server->grab_x;
 	double dy = server->cursor->y - server->grab_y;
@@ -319,7 +327,8 @@ static void process_cursor_resize(struct comf_server *server, uint32_t time) {
 	wlr_xdg_toplevel_set_size(view->xdg_surface, width, height);
 }
 
-static void process_cursor_motion(struct comf_server *server, uint32_t time) {
+static void process_cursor_motion(struct comf_server *server, uint32_t time)
+{
 	if (server->cursor_mode == COMF_CURSOR_MOVE) {
 		process_cursor_move(server, time);
 		return;
@@ -331,11 +340,11 @@ static void process_cursor_motion(struct comf_server *server, uint32_t time) {
 	double sx, sy;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *surface = NULL;
-	struct comf_view *view = desktop_view_at(server,
-			server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+	struct comf_view *view =
+		desktop_view_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
 	if (!view) {
-		wlr_xcursor_manager_set_cursor_image(
-				server->cursor_mgr, "left_ptr", server->cursor);
+		wlr_xcursor_manager_set_cursor_image(server->cursor_mgr, "left_ptr",
+						     server->cursor);
 	}
 	if (surface) {
 		bool focus_changed = seat->pointer_state.focused_surface != surface;
@@ -348,35 +357,32 @@ static void process_cursor_motion(struct comf_server *server, uint32_t time) {
 	}
 }
 
-static void server_cursor_motion(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, cursor_motion);
+static void server_cursor_motion(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, cursor_motion);
 	struct wlr_event_pointer_motion *event = data;
-	wlr_cursor_move(server->cursor, event->device,
-			event->delta_x, event->delta_y);
+	wlr_cursor_move(server->cursor, event->device, event->delta_x, event->delta_y);
 	process_cursor_motion(server, event->time_msec);
 }
 
-static void server_cursor_motion_absolute(
-		struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, cursor_motion_absolute);
+static void server_cursor_motion_absolute(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, cursor_motion_absolute);
 	struct wlr_event_pointer_motion_absolute *event = data;
 	wlr_cursor_warp_absolute(server->cursor, event->device, event->x, event->y);
 	process_cursor_motion(server, event->time_msec);
 }
 
-static void server_cursor_button(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, cursor_button);
+static void server_cursor_button(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, cursor_button);
 	struct wlr_event_pointer_button *event = data;
-	wlr_seat_pointer_notify_button(server->seat,
-			event->time_msec, event->button, event->state);
+	wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button, event->state);
 	double sx, sy;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *surface;
-	struct comf_view *view = desktop_view_at(server,
-			server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+	struct comf_view *view =
+		desktop_view_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
 	if (event->state == WLR_BUTTON_RELEASED) {
 		server->cursor_mode = COMF_CURSOR_PASSTHROUGH;
 	} else {
@@ -384,13 +390,12 @@ static void server_cursor_button(struct wl_listener *listener, void *data) {
 	}
 }
 
-static void server_cursor_axis(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, cursor_axis);
+static void server_cursor_axis(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, cursor_axis);
 	struct wlr_event_pointer_axis *event = data;
-	wlr_seat_pointer_notify_axis(server->seat,
-			event->time_msec, event->orientation, event->delta,
-			event->delta_discrete, event->source);
+	wlr_seat_pointer_notify_axis(server->seat, event->time_msec, event->orientation,
+				     event->delta, event->delta_discrete, event->source);
 }
 
 struct render_data {
@@ -400,8 +405,8 @@ struct render_data {
 	struct timespec *when;
 };
 
-static void render_surface(struct wlr_surface *surface,
-		int sx, int sy, void *data) {
+static void render_surface(struct wlr_surface *surface, int sx, int sy, void *data)
+{
 	struct render_data *rdata = data;
 	struct comf_view *view = rdata->view;
 	struct wlr_output *output = rdata->output;
@@ -412,8 +417,7 @@ static void render_surface(struct wlr_surface *surface,
 	}
 
 	double ox = 0, oy = 0;
-	wlr_output_layout_output_coords(
-			view->server->output_layout, output, &ox, &oy);
+	wlr_output_layout_output_coords(view->server->output_layout, output, &ox, &oy);
 	ox += view->x + sx, oy += view->y + sy;
 
 	struct wlr_box box = {
@@ -426,17 +430,16 @@ static void render_surface(struct wlr_surface *surface,
 	float matrix[9];
 	enum wl_output_transform transform =
 		wlr_output_transform_invert(surface->current.transform);
-	wlr_matrix_project_box(matrix, &box, transform, 0,
-		output->transform_matrix);
+	wlr_matrix_project_box(matrix, &box, transform, 0, output->transform_matrix);
 
 	wlr_render_texture_with_matrix(rdata->renderer, texture, matrix, 1);
 
 	wlr_surface_send_frame_done(surface, rdata->when);
 }
 
-static void output_frame(struct wl_listener *listener, void *data) {
-	struct comf_output *output =
-		wl_container_of(listener, output, frame);
+static void output_frame(struct wl_listener *listener, void *data)
+{
+	struct comf_output *output = wl_container_of(listener, output, frame);
 	struct wlr_renderer *renderer = output->server->renderer;
 
 	struct timespec now;
@@ -449,11 +452,12 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	wlr_output_effective_resolution(output->wlr_output, &width, &height);
 	wlr_renderer_begin(renderer, width, height);
 
-	float color[4] = {0.3, 0.3, 0.3, 1.0};
+	float color[4] = { 0.3, 0.3, 0.3, 1.0 };
 	wlr_renderer_clear(renderer, color);
 
 	struct comf_view *view;
-	wl_list_for_each_reverse(view, &output->server->views, link) {
+	wl_list_for_each_reverse(view, &output->server->views, link)
+	{
 		if (!view->mapped) {
 			continue;
 		}
@@ -463,27 +467,24 @@ static void output_frame(struct wl_listener *listener, void *data) {
 			.renderer = renderer,
 			.when = &now,
 		};
-		wlr_xdg_surface_for_each_surface(view->xdg_surface,
-				render_surface, &rdata);
+		wlr_xdg_surface_for_each_surface(view->xdg_surface, render_surface, &rdata);
 	}
 
 	wlr_renderer_end(renderer);
 	wlr_output_swap_buffers(output->wlr_output, NULL, NULL);
 }
 
-static void server_new_output(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, new_output);
+static void server_new_output(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
 
 	if (!wl_list_empty(&wlr_output->modes)) {
-		struct wlr_output_mode *mode =
-			wl_container_of(wlr_output->modes.prev, mode, link);
+		struct wlr_output_mode *mode = wl_container_of(wlr_output->modes.prev, mode, link);
 		wlr_output_set_mode(wlr_output, mode);
 	}
 
-	struct comf_output *output =
-		calloc(1, sizeof(struct comf_output));
+	struct comf_output *output = calloc(1, sizeof(struct comf_output));
 	output->wlr_output = wlr_output;
 	output->server = server;
 	output->frame.notify = output_frame;
@@ -495,28 +496,30 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 	wlr_output_create_global(wlr_output);
 }
 
-static void xdg_surface_map(struct wl_listener *listener, void *data) {
+static void xdg_surface_map(struct wl_listener *listener, void *data)
+{
 	struct comf_view *view = wl_container_of(listener, view, map);
 	view->mapped = true;
 	focus_view(view, view->xdg_surface->surface);
 }
 
-static void xdg_surface_unmap(struct wl_listener *listener, void *data) {
+static void xdg_surface_unmap(struct wl_listener *listener, void *data)
+{
 	struct comf_view *view = wl_container_of(listener, view, unmap);
 	view->mapped = false;
 }
 
-static void xdg_surface_destroy(struct wl_listener *listener, void *data) {
+static void xdg_surface_destroy(struct wl_listener *listener, void *data)
+{
 	struct comf_view *view = wl_container_of(listener, view, destroy);
 	wl_list_remove(&view->link);
 	free(view);
 }
 
-static void begin_interactive(struct comf_view *view,
-		enum comf_cursor_mode mode, uint32_t edges) {
+static void begin_interactive(struct comf_view *view, enum comf_cursor_mode mode, uint32_t edges)
+{
 	struct comf_server *server = view->server;
-	struct wlr_surface *focused_surface =
-		server->seat->pointer_state.focused_surface;
+	struct wlr_surface *focused_surface = server->seat->pointer_state.focused_surface;
 	if (view->xdg_surface->surface != focused_surface) {
 		return;
 	}
@@ -536,29 +539,28 @@ static void begin_interactive(struct comf_view *view,
 	server->resize_edges = edges;
 }
 
-static void xdg_toplevel_request_move(
-		struct wl_listener *listener, void *data) {
+static void xdg_toplevel_request_move(struct wl_listener *listener, void *data)
+{
 	struct comf_view *view = wl_container_of(listener, view, request_move);
 	begin_interactive(view, COMF_CURSOR_MOVE, 0);
 }
 
-static void xdg_toplevel_request_resize(
-		struct wl_listener *listener, void *data) {
+static void xdg_toplevel_request_resize(struct wl_listener *listener, void *data)
+{
 	struct wlr_xdg_toplevel_resize_event *event = data;
 	struct comf_view *view = wl_container_of(listener, view, request_resize);
 	begin_interactive(view, COMF_CURSOR_RESIZE, event->edges);
 }
 
-static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
-	struct comf_server *server =
-		wl_container_of(listener, server, new_xdg_surface);
+static void server_new_xdg_surface(struct wl_listener *listener, void *data)
+{
+	struct comf_server *server = wl_container_of(listener, server, new_xdg_surface);
 	struct wlr_xdg_surface *xdg_surface = data;
 	if (xdg_surface->role != WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
 		return;
 	}
 
-	struct comf_view *view =
-		calloc(1, sizeof(struct comf_view));
+	struct comf_view *view = calloc(1, sizeof(struct comf_view));
 	view->server = server;
 	view->xdg_surface = xdg_surface;
 
@@ -578,7 +580,8 @@ static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
 	wl_list_insert(&server->views, &view->link);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	wlr_log_init(WLR_DEBUG, NULL);
 	char *startup_cmd = NULL;
 
@@ -618,8 +621,7 @@ int main(int argc, char *argv[]) {
 	wl_list_init(&server.views);
 	server.xdg_shell = wlr_xdg_shell_create(server.wl_display);
 	server.new_xdg_surface.notify = server_new_xdg_surface;
-	wl_signal_add(&server.xdg_shell->events.new_surface,
-			&server.new_xdg_surface);
+	wl_signal_add(&server.xdg_shell->events.new_surface, &server.new_xdg_surface);
 
 	server.cursor = wlr_cursor_create();
 	wlr_cursor_attach_output_layout(server.cursor, server.output_layout);
@@ -630,8 +632,7 @@ int main(int argc, char *argv[]) {
 	server.cursor_motion.notify = server_cursor_motion;
 	wl_signal_add(&server.cursor->events.motion, &server.cursor_motion);
 	server.cursor_motion_absolute.notify = server_cursor_motion_absolute;
-	wl_signal_add(&server.cursor->events.motion_absolute,
-			&server.cursor_motion_absolute);
+	wl_signal_add(&server.cursor->events.motion_absolute, &server.cursor_motion_absolute);
 	server.cursor_button.notify = server_cursor_button;
 	wl_signal_add(&server.cursor->events.button, &server.cursor_button);
 	server.cursor_axis.notify = server_cursor_axis;
@@ -642,8 +643,7 @@ int main(int argc, char *argv[]) {
 	wl_signal_add(&server.backend->events.new_input, &server.new_input);
 	server.seat = wlr_seat_create(server.wl_display, "seat0");
 	server.request_cursor.notify = seat_request_cursor;
-	wl_signal_add(&server.seat->events.request_set_cursor,
-			&server.request_cursor);
+	wl_signal_add(&server.seat->events.request_set_cursor, &server.request_cursor);
 
 	const char *socket = wl_display_add_socket_auto(server.wl_display);
 	if (!socket) {
