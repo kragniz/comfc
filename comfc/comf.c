@@ -24,13 +24,13 @@
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
-enum tinywl_cursor_mode {
-	TINYWL_CURSOR_PASSTHROUGH,
-	TINYWL_CURSOR_MOVE,
-	TINYWL_CURSOR_RESIZE,
+enum comf_cursor_mode {
+	COMF_CURSOR_PASSTHROUGH,
+	COMF_CURSOR_MOVE,
+	COMF_CURSOR_RESIZE,
 };
 
-struct tinywl_server {
+struct comf_server {
 	struct wl_display *wl_display;
 	struct wlr_backend *backend;
 	struct wlr_renderer *renderer;
@@ -50,8 +50,8 @@ struct tinywl_server {
 	struct wl_listener new_input;
 	struct wl_listener request_cursor;
 	struct wl_list keyboards;
-	enum tinywl_cursor_mode cursor_mode;
-	struct tinywl_view *grabbed_view;
+	enum comf_cursor_mode cursor_mode;
+	struct comf_view *grabbed_view;
 	double grab_x, grab_y;
 	int grab_width, grab_height;
 	uint32_t resize_edges;
@@ -61,16 +61,16 @@ struct tinywl_server {
 	struct wl_listener new_output;
 };
 
-struct tinywl_output {
+struct comf_output {
 	struct wl_list link;
-	struct tinywl_server *server;
+	struct comf_server *server;
 	struct wlr_output *wlr_output;
 	struct wl_listener frame;
 };
 
-struct tinywl_view {
+struct comf_view {
 	struct wl_list link;
-	struct tinywl_server *server;
+	struct comf_server *server;
 	struct wlr_xdg_surface *xdg_surface;
 	struct wl_listener map;
 	struct wl_listener unmap;
@@ -81,26 +81,26 @@ struct tinywl_view {
 	int x, y;
 };
 
-struct tinywl_keyboard {
+struct comf_keyboard {
 	struct wl_list link;
-	struct tinywl_server *server;
+	struct comf_server *server;
 	struct wlr_input_device *device;
 
 	struct wl_listener modifiers;
 	struct wl_listener key;
 };
 
-struct tinywl_pointer {
+struct comf_pointer {
 	struct wl_list link;
-	struct tinywl_server *server;
+	struct comf_server *server;
 	struct wlr_input_device *device;
 };
 
-static void focus_view(struct tinywl_view *view, struct wlr_surface *surface) {
+static void focus_view(struct comf_view *view, struct wlr_surface *surface) {
 	if (view == NULL) {
 		return;
 	}
-	struct tinywl_server *server = view->server;
+	struct comf_server *server = view->server;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *prev_surface = seat->keyboard_state.focused_surface;
 	if (prev_surface == surface) {
@@ -121,14 +121,14 @@ static void focus_view(struct tinywl_view *view, struct wlr_surface *surface) {
 
 static void keyboard_handle_modifiers(
 		struct wl_listener *listener, void *data) {
-	struct tinywl_keyboard *keyboard =
+	struct comf_keyboard *keyboard =
 		wl_container_of(listener, keyboard, modifiers);
 	wlr_seat_set_keyboard(keyboard->server->seat, keyboard->device);
 	wlr_seat_keyboard_notify_modifiers(keyboard->server->seat,
 		&keyboard->device->keyboard->modifiers);
 }
 
-static bool handle_keybinding(struct tinywl_server *server, xkb_keysym_t sym) {
+static bool handle_keybinding(struct comf_server *server, xkb_keysym_t sym) {
 	switch (sym) {
 	case XKB_KEY_Escape:
 		wl_display_terminate(server->wl_display);
@@ -138,9 +138,9 @@ static bool handle_keybinding(struct tinywl_server *server, xkb_keysym_t sym) {
 		if (wl_list_length(&server->views) < 2) {
 			break;
 		}
-		struct tinywl_view *current_view = wl_container_of(
+		struct comf_view *current_view = wl_container_of(
 			server->views.next, current_view, link);
-		struct tinywl_view *next_view = wl_container_of(
+		struct comf_view *next_view = wl_container_of(
 			current_view->link.next, next_view, link);
 		focus_view(next_view, next_view->xdg_surface->surface);
 		/* Move the previous view to the end of the list */
@@ -155,9 +155,9 @@ static bool handle_keybinding(struct tinywl_server *server, xkb_keysym_t sym) {
 
 static void keyboard_handle_key(
 		struct wl_listener *listener, void *data) {
-	struct tinywl_keyboard *keyboard =
+	struct comf_keyboard *keyboard =
 		wl_container_of(listener, keyboard, key);
-	struct tinywl_server *server = keyboard->server;
+	struct comf_server *server = keyboard->server;
 	struct wlr_event_keyboard_key *event = data;
 	struct wlr_seat *seat = server->seat;
 
@@ -181,10 +181,10 @@ static void keyboard_handle_key(
 	}
 }
 
-static void server_new_keyboard(struct tinywl_server *server,
+static void server_new_keyboard(struct comf_server *server,
 		struct wlr_input_device *device) {
-	struct tinywl_keyboard *keyboard =
-		calloc(1, sizeof(struct tinywl_keyboard));
+	struct comf_keyboard *keyboard =
+		calloc(1, sizeof(struct comf_keyboard));
 	keyboard->server = server;
 	keyboard->device = device;
 
@@ -208,13 +208,13 @@ static void server_new_keyboard(struct tinywl_server *server,
 	wl_list_insert(&server->keyboards, &keyboard->link);
 }
 
-static void server_new_pointer(struct tinywl_server *server,
+static void server_new_pointer(struct comf_server *server,
 		struct wlr_input_device *device) {
 	wlr_cursor_attach_input_device(server->cursor, device);
 }
 
 static void server_new_input(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, new_input);
 	struct wlr_input_device *device = data;
 	switch (device->type) {
@@ -233,7 +233,7 @@ static void server_new_input(struct wl_listener *listener, void *data) {
 }
 
 static void seat_request_cursor(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server = wl_container_of(
+	struct comf_server *server = wl_container_of(
 			listener, server, request_cursor);
 	struct wlr_seat_pointer_request_set_cursor_event *event = data;
 	struct wlr_seat_client *focused_client =
@@ -244,7 +244,7 @@ static void seat_request_cursor(struct wl_listener *listener, void *data) {
 	}
 }
 
-static bool view_at(struct tinywl_view *view,
+static bool view_at(struct comf_view *view,
 		double lx, double ly, struct wlr_surface **surface,
 		double *sx, double *sy) {
 	double view_sx = lx - view->x;
@@ -271,10 +271,10 @@ static bool view_at(struct tinywl_view *view,
 	return false;
 }
 
-static struct tinywl_view *desktop_view_at(
-		struct tinywl_server *server, double lx, double ly,
+static struct comf_view *desktop_view_at(
+		struct comf_server *server, double lx, double ly,
 		struct wlr_surface **surface, double *sx, double *sy) {
-	struct tinywl_view *view;
+	struct comf_view *view;
 	wl_list_for_each(view, &server->views, link) {
 		if (view_at(view, lx, ly, surface, sx, sy)) {
 			return view;
@@ -283,13 +283,13 @@ static struct tinywl_view *desktop_view_at(
 	return NULL;
 }
 
-static void process_cursor_move(struct tinywl_server *server, uint32_t time) {
+static void process_cursor_move(struct comf_server *server, uint32_t time) {
 	server->grabbed_view->x = server->cursor->x - server->grab_x;
 	server->grabbed_view->y = server->cursor->y - server->grab_y;
 }
 
-static void process_cursor_resize(struct tinywl_server *server, uint32_t time) {
-	struct tinywl_view *view = server->grabbed_view;
+static void process_cursor_resize(struct comf_server *server, uint32_t time) {
+	struct comf_view *view = server->grabbed_view;
 	double dx = server->cursor->x - server->grab_x;
 	double dy = server->cursor->y - server->grab_y;
 	double x = view->x;
@@ -319,11 +319,11 @@ static void process_cursor_resize(struct tinywl_server *server, uint32_t time) {
 	wlr_xdg_toplevel_set_size(view->xdg_surface, width, height);
 }
 
-static void process_cursor_motion(struct tinywl_server *server, uint32_t time) {
-	if (server->cursor_mode == TINYWL_CURSOR_MOVE) {
+static void process_cursor_motion(struct comf_server *server, uint32_t time) {
+	if (server->cursor_mode == COMF_CURSOR_MOVE) {
 		process_cursor_move(server, time);
 		return;
-	} else if (server->cursor_mode == TINYWL_CURSOR_RESIZE) {
+	} else if (server->cursor_mode == COMF_CURSOR_RESIZE) {
 		process_cursor_resize(server, time);
 		return;
 	}
@@ -331,7 +331,7 @@ static void process_cursor_motion(struct tinywl_server *server, uint32_t time) {
 	double sx, sy;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *surface = NULL;
-	struct tinywl_view *view = desktop_view_at(server,
+	struct comf_view *view = desktop_view_at(server,
 			server->cursor->x, server->cursor->y, &surface, &sx, &sy);
 	if (!view) {
 		wlr_xcursor_manager_set_cursor_image(
@@ -349,7 +349,7 @@ static void process_cursor_motion(struct tinywl_server *server, uint32_t time) {
 }
 
 static void server_cursor_motion(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, cursor_motion);
 	struct wlr_event_pointer_motion *event = data;
 	wlr_cursor_move(server->cursor, event->device,
@@ -359,7 +359,7 @@ static void server_cursor_motion(struct wl_listener *listener, void *data) {
 
 static void server_cursor_motion_absolute(
 		struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, cursor_motion_absolute);
 	struct wlr_event_pointer_motion_absolute *event = data;
 	wlr_cursor_warp_absolute(server->cursor, event->device, event->x, event->y);
@@ -367,7 +367,7 @@ static void server_cursor_motion_absolute(
 }
 
 static void server_cursor_button(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, cursor_button);
 	struct wlr_event_pointer_button *event = data;
 	wlr_seat_pointer_notify_button(server->seat,
@@ -375,17 +375,17 @@ static void server_cursor_button(struct wl_listener *listener, void *data) {
 	double sx, sy;
 	struct wlr_seat *seat = server->seat;
 	struct wlr_surface *surface;
-	struct tinywl_view *view = desktop_view_at(server,
+	struct comf_view *view = desktop_view_at(server,
 			server->cursor->x, server->cursor->y, &surface, &sx, &sy);
 	if (event->state == WLR_BUTTON_RELEASED) {
-		server->cursor_mode = TINYWL_CURSOR_PASSTHROUGH;
+		server->cursor_mode = COMF_CURSOR_PASSTHROUGH;
 	} else {
 		focus_view(view, surface);
 	}
 }
 
 static void server_cursor_axis(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, cursor_axis);
 	struct wlr_event_pointer_axis *event = data;
 	wlr_seat_pointer_notify_axis(server->seat,
@@ -396,14 +396,14 @@ static void server_cursor_axis(struct wl_listener *listener, void *data) {
 struct render_data {
 	struct wlr_output *output;
 	struct wlr_renderer *renderer;
-	struct tinywl_view *view;
+	struct comf_view *view;
 	struct timespec *when;
 };
 
 static void render_surface(struct wlr_surface *surface,
 		int sx, int sy, void *data) {
 	struct render_data *rdata = data;
-	struct tinywl_view *view = rdata->view;
+	struct comf_view *view = rdata->view;
 	struct wlr_output *output = rdata->output;
 
 	struct wlr_texture *texture = wlr_surface_get_texture(surface);
@@ -435,7 +435,7 @@ static void render_surface(struct wlr_surface *surface,
 }
 
 static void output_frame(struct wl_listener *listener, void *data) {
-	struct tinywl_output *output =
+	struct comf_output *output =
 		wl_container_of(listener, output, frame);
 	struct wlr_renderer *renderer = output->server->renderer;
 
@@ -452,7 +452,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 	float color[4] = {0.3, 0.3, 0.3, 1.0};
 	wlr_renderer_clear(renderer, color);
 
-	struct tinywl_view *view;
+	struct comf_view *view;
 	wl_list_for_each_reverse(view, &output->server->views, link) {
 		if (!view->mapped) {
 			continue;
@@ -472,7 +472,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 }
 
 static void server_new_output(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, new_output);
 	struct wlr_output *wlr_output = data;
 
@@ -482,8 +482,8 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 		wlr_output_set_mode(wlr_output, mode);
 	}
 
-	struct tinywl_output *output =
-		calloc(1, sizeof(struct tinywl_output));
+	struct comf_output *output =
+		calloc(1, sizeof(struct comf_output));
 	output->wlr_output = wlr_output;
 	output->server = server;
 	output->frame.notify = output_frame;
@@ -496,25 +496,25 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 }
 
 static void xdg_surface_map(struct wl_listener *listener, void *data) {
-	struct tinywl_view *view = wl_container_of(listener, view, map);
+	struct comf_view *view = wl_container_of(listener, view, map);
 	view->mapped = true;
 	focus_view(view, view->xdg_surface->surface);
 }
 
 static void xdg_surface_unmap(struct wl_listener *listener, void *data) {
-	struct tinywl_view *view = wl_container_of(listener, view, unmap);
+	struct comf_view *view = wl_container_of(listener, view, unmap);
 	view->mapped = false;
 }
 
 static void xdg_surface_destroy(struct wl_listener *listener, void *data) {
-	struct tinywl_view *view = wl_container_of(listener, view, destroy);
+	struct comf_view *view = wl_container_of(listener, view, destroy);
 	wl_list_remove(&view->link);
 	free(view);
 }
 
-static void begin_interactive(struct tinywl_view *view,
-		enum tinywl_cursor_mode mode, uint32_t edges) {
-	struct tinywl_server *server = view->server;
+static void begin_interactive(struct comf_view *view,
+		enum comf_cursor_mode mode, uint32_t edges) {
+	struct comf_server *server = view->server;
 	struct wlr_surface *focused_surface =
 		server->seat->pointer_state.focused_surface;
 	if (view->xdg_surface->surface != focused_surface) {
@@ -524,7 +524,7 @@ static void begin_interactive(struct tinywl_view *view,
 	server->cursor_mode = mode;
 	struct wlr_box geo_box;
 	wlr_xdg_surface_get_geometry(view->xdg_surface, &geo_box);
-	if (mode == TINYWL_CURSOR_MOVE) {
+	if (mode == COMF_CURSOR_MOVE) {
 		server->grab_x = server->cursor->x - view->x;
 		server->grab_y = server->cursor->y - view->y;
 	} else {
@@ -538,27 +538,27 @@ static void begin_interactive(struct tinywl_view *view,
 
 static void xdg_toplevel_request_move(
 		struct wl_listener *listener, void *data) {
-	struct tinywl_view *view = wl_container_of(listener, view, request_move);
-	begin_interactive(view, TINYWL_CURSOR_MOVE, 0);
+	struct comf_view *view = wl_container_of(listener, view, request_move);
+	begin_interactive(view, COMF_CURSOR_MOVE, 0);
 }
 
 static void xdg_toplevel_request_resize(
 		struct wl_listener *listener, void *data) {
 	struct wlr_xdg_toplevel_resize_event *event = data;
-	struct tinywl_view *view = wl_container_of(listener, view, request_resize);
-	begin_interactive(view, TINYWL_CURSOR_RESIZE, event->edges);
+	struct comf_view *view = wl_container_of(listener, view, request_resize);
+	begin_interactive(view, COMF_CURSOR_RESIZE, event->edges);
 }
 
 static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
-	struct tinywl_server *server =
+	struct comf_server *server =
 		wl_container_of(listener, server, new_xdg_surface);
 	struct wlr_xdg_surface *xdg_surface = data;
 	if (xdg_surface->role != WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
 		return;
 	}
 
-	struct tinywl_view *view =
-		calloc(1, sizeof(struct tinywl_view));
+	struct comf_view *view =
+		calloc(1, sizeof(struct comf_view));
 	view->server = server;
 	view->xdg_surface = xdg_surface;
 
@@ -598,7 +598,7 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	struct tinywl_server server;
+	struct comf_server server;
 	server.wl_display = wl_display_create();
 	server.backend = wlr_backend_autocreate(server.wl_display, NULL);
 
