@@ -32,7 +32,7 @@ wayland_server = dependency('wayland-server')
 wayland_client = dependency('wayland-client')
 wayland_protos = dependency('wayland-protocols', version: '>=1.12')
 pixman = dependency('pixman-1')
-xkbcommon	= dependency('xkbcommon')
+xkbcommon = dependency('xkbcommon')
 
 subdir('protocol')
 subdir('comfc')
