@@ -221,6 +221,15 @@ static void server_new_input(struct wl_listener *listener, void *data)
 	case WLR_INPUT_DEVICE_POINTER:
 		server_new_pointer(server, device);
 		break;
+	case WLR_INPUT_DEVICE_TOUCH:
+		// FIXME: handle touch devices
+		break;
+	case WLR_INPUT_DEVICE_TABLET_TOOL:
+		// FIXME: handle tablet devices
+		break;
+	case WLR_INPUT_DEVICE_TABLET_PAD:
+		// FIXME: handle tablet pad devices
+		break;
 	}
 	uint32_t caps = WL_SEAT_CAPABILITY_POINTER;
 	if (!wl_list_empty(&server->keyboards)) {
